@@ -8,7 +8,7 @@ from werkzeug import Response
 
 from gateway.entrypoints import http
 from gateway.exceptions import OrderNotFound, ProductNotFound
-from gateway.schemas import CreateOrderSchema, GetOrderSchema, ProductSchema
+from gateway.schemas import CreateOrderSchema, GetOrderSchema, ProductSchema, ListOrderPagedSchema
 
 
 class GatewayService(object):
@@ -33,6 +33,17 @@ class GatewayService(object):
             ProductSchema().dumps(product).data,
             mimetype='application/json'
         )
+    
+
+    @http(
+        "DELETE", "/products/<string:product_id>",
+        expected_exceptions=ProductNotFound
+    )
+    def delete_product(self, request, product_id):
+        """Gets product by `product_id`
+        """
+        product = self.products_rpc.delete(product_id)
+        return Response(status=200)
 
     @http(
         "POST", "/products",
@@ -93,21 +104,26 @@ class GatewayService(object):
         # raise``OrderNotFound``
         order = self.orders_rpc.get_order(order_id)
 
-        # Retrieve all products from the products service
-        product_map = {prod['id']: prod for prod in self.products_rpc.list()}
+        self._populate_order_props(order)
+
+        return order
+    
+    def _populate_order_props(self, order: GetOrderSchema):
 
         # get the configured image root
         image_root = config['PRODUCT_IMAGE_ROOT']
 
         # Enhance order details with product and image details.
         for item in order['order_details']:
-            product_id = item['product_id']
+            try:
+                product = self.products_rpc.get(item['product_id'])
 
-            item['product'] = product_map[product_id]
-            # Construct an image url.
-            item['image'] = '{}/{}.jpg'.format(image_root, product_id)
-
-        return order
+                item['product'] = product
+                # Construct an image url.
+                item['image'] = '{}/{}.jpg'.format(image_root, product['id'])
+            except:
+                pass #TODO deleting a product should also delete it's record on order?
+                # or should just be treated here if there's no product on redis anymore?
 
     @http(
         "POST", "/orders",
@@ -156,10 +172,8 @@ class GatewayService(object):
         return Response(json.dumps({'id': id_}), mimetype='application/json')
 
     def _create_order(self, order_data):
-        # check order product ids are valid
-        valid_product_ids = {prod['id'] for prod in self.products_rpc.list()}
         for item in order_data['order_details']:
-            if item['product_id'] not in valid_product_ids:
+            if self.products_rpc.get(item['product_id']) == None:
                 raise ProductNotFound(
                     "Product Id {}".format(item['product_id'])
                 )
@@ -172,3 +186,28 @@ class GatewayService(object):
             serialized_data['order_details']
         )
         return result['id']
+
+
+    @http("GET", "/orders/paged", expected_exceptions=OrderNotFound)
+    def get_order_paged(self, request):
+        """Gets all the orders persisted.
+        """
+        schema = ListOrderPagedSchema(strict=True)
+
+        try:
+            # load input data through a schema (for validation)
+            # Note - this may raise `ValueError` for invalid json,
+            # or `ValidationError` if data is invalid.
+            paged_order_req = schema.loads(request.get_data(as_text=True)).data
+
+            orders_list = self.orders_rpc.list_orders(paged_order_req['page_size'], paged_order_req['page_number'])
+
+            for order in orders_list:
+                self._populate_order_props(order)
+
+            return Response(
+                GetOrderSchema(many=True).dumps(orders_list).data,
+                mimetype='application/json'
+            )
+        except ValueError as exc:
+            raise BadRequest("Invalid json: {}".format(exc))

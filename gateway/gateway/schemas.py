@@ -12,6 +12,10 @@ class CreateOrderSchema(Schema):
         CreateOrderDetailSchema, many=True, required=True
     )
 
+class ListOrderPagedSchema(Schema):
+    page_size = fields.Int(required=True)
+    page_number = fields.Int(required=True)
+
 
 class ProductSchema(Schema):
     id = fields.Str(required=True)

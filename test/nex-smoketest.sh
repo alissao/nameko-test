@@ -52,3 +52,17 @@ ID=$(echo ${ORDER_ID} | jq '.id')
 # Test: Get Order back
 echo "=== Getting Order ==="
 curl -s "${STD_APP_URL}/orders/${ID}" | jq .
+
+# Test: Get All Orders
+echo "=== Getting All Orders Paged ==="
+ORDER_PAGE=$(
+    curl -s -XGET "${STD_APP_URL}/orders/paged" \
+    -H 'accept: application/json' \
+    -H 'Content-Type: application/json' \
+    -d '{"page_size": 10, "page_number": 0}' 
+)
+echo ${ORDER_PAGE} | jq .
+
+# Test: Delete Product
+echo "=== Deleting product id: the_odyssey ==="
+curl -s -XDELETE "${STD_APP_URL}/products/the_odyssey" | jq .
