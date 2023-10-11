@@ -115,11 +115,15 @@ class GatewayService(object):
 
         # Enhance order details with product and image details.
         for item in order['order_details']:
-            product = self.products_rpc.get(item['product_id'])
+            try:
+                product = self.products_rpc.get(item['product_id'])
 
-            item['product'] = product
-            # Construct an image url.
-            item['image'] = '{}/{}.jpg'.format(image_root, product['id'])
+                item['product'] = product
+                # Construct an image url.
+                item['image'] = '{}/{}.jpg'.format(image_root, product['id'])
+            except:
+                pass #TODO deleting a product should also delete it's record on order?
+                # or should just be treated here if there's no product on redis anymore?
 
     @http(
         "POST", "/orders",

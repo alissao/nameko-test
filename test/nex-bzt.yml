@@ -108,8 +108,35 @@ scenarios:
     - if: '"${order_id}" == "NOT_FOUND"'
       then:
         - action: continue
+      
+    # 5. Get Orders
+    - url: /orders/paged
+      label: order-paged
+      think-time: uniform(0s, 0s)
+      method: GET
+      headers:
+        cache-control: no-cache
+        Content-Type: application/json
+      body: 'request-body-string'
+      body: >
+        {
+          "page_size": 10, "page_number": 0
+        }
+        
+      assert:
+      - contains:
+        - 200
+        subject: http-code
+        not: false
+      extract-jsonpath:
+        order_id: $.id
+        default: NOT_FOUND
 
-    # 5. Delete Product
+    - if: '"${order_id}" == "NOT_FOUND"'
+      then:
+        - action: continue
+
+      # 6. Delete Product
     - url: /products/${product_id}
       label: product-delete
       think-time: uniform(0s, 0s)
