@@ -8,7 +8,7 @@ from werkzeug import Response
 
 from gateway.entrypoints import http
 from gateway.exceptions import OrderNotFound, ProductNotFound
-from gateway.schemas import CreateOrderSchema, GetOrderSchema, ProductSchema
+from gateway.schemas import CreateOrderSchema, GetOrderSchema, ProductSchema, ListOrderPagedSchema
 
 
 class GatewayService(object):
@@ -184,16 +184,26 @@ class GatewayService(object):
         return result['id']
 
 
-    @http("GET", "/orders/all", expected_exceptions=OrderNotFound)
-    def get_all_orders(self, request):
+    @http("GET", "/orders/paged", expected_exceptions=OrderNotFound)
+    def get_order_paged(self, request):
         """Gets all the orders persisted.
         """
-        orders_list = self.orders_rpc.list_orders()
+        schema = ListOrderPagedSchema(strict=True)
 
-        for order in orders_list:
-            self._populate_order_props(order)
+        try:
+            # load input data through a schema (for validation)
+            # Note - this may raise `ValueError` for invalid json,
+            # or `ValidationError` if data is invalid.
+            paged_order_req = schema.loads(request.get_data(as_text=True)).data
 
-        return Response(
-            GetOrderSchema(many=True).dumps(orders_list).data,
-            mimetype='application/json'
-        )
+            orders_list = self.orders_rpc.list_orders(paged_order_req['page_size'], paged_order_req['page_number'])
+
+            for order in orders_list:
+                self._populate_order_props(order)
+
+            return Response(
+                GetOrderSchema(many=True).dumps(orders_list).data,
+                mimetype='application/json'
+            )
+        except ValueError as exc:
+            raise BadRequest("Invalid json: {}".format(exc))

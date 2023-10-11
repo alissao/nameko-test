@@ -23,8 +23,8 @@ class OrdersService:
         return OrderSchema().dump(order).data
     
     @rpc
-    def list_orders(self):
-        orders_list = self.db.query(Order).all()
+    def list_orders(self, page_size: int, page_number: int):
+        orders_list = self.db.query(Order).limit(page_size).offset(page_size * page_number)
 
         if not orders_list:
             raise NotFound('No order placed yet')
