@@ -104,6 +104,12 @@ class GatewayService(object):
         # raise``OrderNotFound``
         order = self.orders_rpc.get_order(order_id)
 
+        self._populate_order_props(order)
+
+        return order
+    
+    def _populate_order_props(self, order: GetOrderSchema):
+
         # get the configured image root
         image_root = config['PRODUCT_IMAGE_ROOT']
 
@@ -114,8 +120,6 @@ class GatewayService(object):
             item['product'] = product
             # Construct an image url.
             item['image'] = '{}/{}.jpg'.format(image_root, product['id'])
-
-        return order
 
     @http(
         "POST", "/orders",
@@ -178,3 +182,18 @@ class GatewayService(object):
             serialized_data['order_details']
         )
         return result['id']
+
+
+    @http("GET", "/orders/all", expected_exceptions=OrderNotFound)
+    def get_all_orders(self, request):
+        """Gets all the orders persisted.
+        """
+        orders_list = self.orders_rpc.list_orders()
+
+        for order in orders_list:
+            self._populate_order_props(order)
+
+        return Response(
+            GetOrderSchema(many=True).dumps(orders_list).data,
+            mimetype='application/json'
+        )
