@@ -220,22 +220,8 @@ class TestCreateOrder(object):
         self, gateway_service, web_session
     ):
         # setup mock products-service response:
-        gateway_service.products_rpc.list.return_value = [
-            {
-                'id': 'the_odyssey',
-                'title': 'The Odyssey',
-                'maximum_speed': 3,
-                'in_stock': 899,
-                'passenger_capacity': 100
-            },
-            {
-                'id': 'the_enigma',
-                'title': 'The Enigma',
-                'maximum_speed': 200,
-                'in_stock': 1,
-                'passenger_capacity': 4
-            },
-        ]
+        gateway_service.products_rpc.get.side_effect = (
+            ProductNotFound('Product Id unknown'))
 
         # call the gateway service to create the order
         response = web_session.post(
