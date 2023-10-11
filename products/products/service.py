@@ -4,6 +4,7 @@ from nameko.events import event_handler
 from nameko.rpc import rpc
 
 from products import dependencies, schemas
+from products.utils.cache import timed_lru_cache
 
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ class ProductsService:
     storage = dependencies.Storage()
 
     @rpc
+    @timed_lru_cache(600, None)
     def get(self, product_id):
         product = self.storage.get(product_id)
         return schemas.Product().dump(product).data
@@ -29,6 +31,10 @@ class ProductsService:
     def create(self, product):
         product = schemas.Product(strict=True).load(product).data
         self.storage.create(product)
+
+    @rpc
+    def delete(self, product_id):
+        self.storage.delete(product_id)
 
     @event_handler('orders', 'order_created')
     def handle_order_created(self, payload):

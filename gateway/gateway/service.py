@@ -33,6 +33,17 @@ class GatewayService(object):
             ProductSchema().dumps(product).data,
             mimetype='application/json'
         )
+    
+
+    @http(
+        "DELETE", "/products/<string:product_id>",
+        expected_exceptions=ProductNotFound
+    )
+    def delete_product(self, request, product_id):
+        """Gets product by `product_id`
+        """
+        product = self.products_rpc.delete(product_id)
+        return Response(status=200)
 
     @http(
         "POST", "/products",
